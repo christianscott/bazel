@@ -30,9 +30,19 @@ import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
+  private static Set<String> digestHashFunctionNames;
+  static {
+    digestHashFunctionNames = new HashSet<>();
+    for (var value : DigestFunction.Value.values()) {
+      digestHashFunctionNames.add(value.name());
+    }
+  }
+
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
   private final DigestFunction.Value digestFunction;
@@ -45,6 +55,10 @@ public class DigestUtil {
 
   private static DigestFunction.Value getDigestFunctionFromHashFunction(DigestHashFunction hashFn) {
     for (String name : hashFn.getNames()) {
+      if (!digestHashFunctionNames.contains(name)) {
+        continue;
+      }
+
       try {
         return DigestFunction.Value.valueOf(name);
       } catch (IllegalArgumentException e) {

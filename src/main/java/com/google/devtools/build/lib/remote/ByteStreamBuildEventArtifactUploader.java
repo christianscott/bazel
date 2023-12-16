@@ -251,12 +251,20 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private boolean isLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+    return isLog(path.getPath().getPathString());
+  }
+
+  private boolean isLog(String path) {
+    return TEST_LOG_PATTERN.matcher(path).matches()
+        || BUILD_LOG_PATTERN.matcher(path).matches();
   }
 
   private boolean isProfile(PathMetadata path) {
-    return path.getPath().equals(profilePath);
+    return isProfile(path.path.getPathString());
+  }
+
+  private boolean isProfile(String path) {
+    return path.equals(profilePath.getPathString());
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -357,6 +365,18 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             Flowable.fromIterable(files)
                 .map(
                     file -> {
+                      if (
+                        remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL
+                        && !(isLog(file.getPathString()) || isProfile(file.getPathString()))
+                      ) {
+                        return new PathMetadata(
+                          file,
+                          /* digest= */ null,
+                          /* directory= */ false,
+                          /* remote= */ false,
+                          /* omitted= */ false,
+                          DigestFunction.Value.SHA256);
+                      }
                       try {
                         return readPathMetadata(file);
                       } catch (IOException e) {
