@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -86,7 +87,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private final Set<PathFragment> omittedFiles = Sets.newConcurrentHashSet();
   private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
-  private final XattrProvider xattrProvider;
+  private final SyscallCache syscallCache;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
   @Nullable private Path profilePath;
@@ -100,7 +101,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String remoteBytestreamUriPrefix,
       String buildRequestId,
       String commandId,
-      XattrProvider xattrProvider,
+      SyscallCache syscallCache,
       RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
     this.executor = executor;
     this.reporter = reporter;
@@ -111,7 +112,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.remoteInstanceName = remoteInstanceName;
     this.remoteBytestreamUriPrefix = remoteBytestreamUriPrefix;
     this.scheduler = Schedulers.from(executor);
-    this.xattrProvider = xattrProvider;
+    this.syscallCache = syscallCache;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
   }
 
@@ -196,7 +197,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    * might do I/O.
    */
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
-    DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
+    DigestUtil digestUtil = new DigestUtil(syscallCache, path.getFileSystem().getDigestFunction());
 
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT

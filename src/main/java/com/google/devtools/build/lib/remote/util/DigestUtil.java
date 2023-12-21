@@ -24,10 +24,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.DigestUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.*;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,12 +33,12 @@ import java.util.Arrays;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
-  private final XattrProvider xattrProvider;
+  private final SyscallCache syscallCache;
   private final DigestHashFunction hashFn;
   private final DigestFunction.Value digestFunction;
 
-  public DigestUtil(XattrProvider xattrProvider, DigestHashFunction hashFn) {
-    this.xattrProvider = xattrProvider;
+  public DigestUtil(SyscallCache syscallCache, DigestHashFunction hashFn) {
+    this.syscallCache = syscallCache;
     this.hashFn = hashFn;
     this.digestFunction = getDigestFunctionFromHashFunction(hashFn);
   }
@@ -68,12 +65,16 @@ public class DigestUtil {
   }
 
   public Digest compute(Path file) throws IOException {
-    return compute(file, file.getFileSize());
+    var stat = syscallCache.statIfFound(file, Symlinks.NOFOLLOW);
+    if (stat == null) {
+      throw new IOException(file + " does not exist");
+    }
+    return compute(file, stat.getSize());
   }
 
   public Digest compute(Path file, long fileSize) throws IOException {
     return buildDigest(
-        DigestUtils.getDigestWithManualFallback(file, fileSize, xattrProvider), fileSize);
+        DigestUtils.getDigestWithManualFallback(file, fileSize, syscallCache), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {
